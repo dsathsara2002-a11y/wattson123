@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Wattsons — Smart Energy Monitor</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script src="firebase.js"></script>
+</head>
+<body>
+
+  <!-- AUTH LOADING OVERLAY -->
+  <div id="authOverlay" class="auth-overlay">
+    <div class="auth-overlay-inner">
+      <div class="overlay-logo">⚡</div>
+      <div class="overlay-spinner"></div>
+      <p>Verifying session…</p>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-icon">⚡</span>
+      <div class="logo-text">
+        <span class="logo-brand">Wattsons</span>
+        <span class="logo-sub">Smart Energy</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item active" data-section="dashboard">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span>Dashboard</span>
+      </a>
+      <a href="#" class="nav-item" data-section="devices">
+        <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        <span>Live Devices</span>
+        <span class="nav-badge" id="deviceCountBadge">0</span>
+      </a>
+      <a href="#" class="nav-item" data-section="analytics">
+        <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        <span>Analytics</span>
+      </a>
+      <a href="#" class="nav-item" data-section="billing">
+        <svg viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+        <span>Billing</span>
+      </a>
+      <a href="#" class="nav-item" data-section="settings">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span>Settings</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-device">
+      <div class="device-dot" id="deviceDot"></div>
+      <div style="flex:1;min-width:0">
+        <div class="device-name">ESP32-S3</div>
+        <div class="device-status" id="deviceStatus">Connected</div>
+      </div>
+      <div class="signal-bars" id="signalBars">
+        <span class="bar b1"></span><span class="bar b2"></span>
+        <span class="bar b3"></span><span class="bar b4"></span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main-content">
+
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <button class="menu-toggle" id="menuToggle">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="topbar-title">
+        <h1 id="sectionTitle">Live Dashboard</h1>
+        <span class="topbar-time" id="topbarTime"></span>
+      </div>
+      <div class="topbar-actions">
+        <div class="live-badge"><span class="live-dot"></span> LIVE</div>
+        <div class="conn-pill" id="connPill">
+          <span class="conn-dot" id="connDot"></span>
+          <span id="connLabel">–65 dBm</span>
+        </div>
+        <div class="user-pill" id="userPill">
+          <span class="user-avatar" id="userAvatar">?</span>
+          <span class="user-email" id="userEmail">…</span>
+        </div>
+        <button class="theme-toggle" id="themeToggle" title="Toggle theme">
+          <svg class="sun-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          <svg class="moon-icon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+        <button class="export-btn" id="exportBtn">
+          <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export
+        </button>
+        <button class="logout-btn" id="logoutBtn">
+          <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Logout
+        </button>
+      </div>
+    </header>
+
+    <!-- ══ DASHBOARD ══ -->
+    <section class="section active" id="sec-dashboard">
+      <div class="alert-banner" id="alertBanner" style="display:none;">
+        <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span id="alertText">High energy usage detected</span>
+        <button onclick="document.getElementById('alertBanner').style.display='none'">✕</button>
+      </div>
+
+      <div class="metrics-grid">
+        <div class="metric-card power-card">
+          <div class="metric-label">Active Power</div>
+          <div class="metric-value" id="powerVal">0.0</div>
+          <div class="metric-unit">mW</div>
+          <div class="metric-bar"><div class="metric-bar-fill" id="powerBar"></div></div>
+          <div class="metric-icon">⚡</div>
+        </div>
+        <div class="metric-card voltage-card">
+          <div class="metric-label">Voltage</div>
+          <div class="metric-value" id="voltageVal">0.0</div>
+          <div class="metric-unit">Volts</div>
+          <div class="metric-bar"><div class="metric-bar-fill" id="voltageBar"></div></div>
+          <div class="metric-icon">🔋</div>
+        </div>
+        <div class="metric-card current-card">
+          <div class="metric-label">Current</div>
+          <div class="metric-value" id="currentVal">0.00</div>
+          <div class="metric-unit">mA</div>
+          <div class="metric-bar"><div class="metric-bar-fill" id="currentBar"></div></div>
+          <div class="metric-icon">〜</div>
+        </div>
+        <div class="metric-card energy-card">
+          <div class="metric-label">Energy Today</div>
+          <div class="metric-value" id="energyVal">0.000</div>
+          <div class="metric-unit">kWh</div>
+          <div class="metric-bar"><div class="metric-bar-fill" id="energyBar"></div></div>
+          <div class="metric-icon">📊</div>
+        </div>
+        <div class="metric-card cost-card">
+          <div class="metric-label">Est. Cost Today</div>
+          <div class="metric-value" id="costVal">0.00</div>
+          <div class="metric-unit">LKR</div>
+          <div class="metric-bar"><div class="metric-bar-fill" id="costBar"></div></div>
+          <div class="metric-icon">💰</div>
+        </div>
+        <div class="metric-card pf-card">
+          <div class="metric-label">Power Factor</div>
+          <div class="metric-value" id="pfVal">0.00</div>
+          <div class="metric-unit">PF</div>
+          <div class="metric-bar"><div class="metric-bar-fill" id="pfBar"></div></div>
+          <div class="metric-icon">📐</div>
+        </div>
+      </div>
+
+      <div class="mid-grid">
+        <div class="chart-card span-2">
+          <div class="chart-header">
+            <h3>Real-time Power (W)</h3>
+            <div style="display:flex;gap:8px;align-items:center">
+              <span class="chart-badge">Last 30 readings</span>
+              <span class="chart-badge" id="lastUpdatedBadge">–</span>
+            </div>
+          </div>
+          <div class="chart-wrap"><canvas id="realtimeChart"></canvas></div>
+        </div>
+
+        <div class="device-panel">
+          <h3 class="panel-title">Load Analysis</h3>
+          <div class="device-gauge">
+            <div class="gauge-ring">
+              <svg viewBox="0 0 120 120">
+                <circle cx="60" cy="60" r="50" class="gauge-bg"/>
+                <circle cx="60" cy="60" r="50" class="gauge-fill" id="gaugeFill"
+                  stroke-dasharray="314" stroke-dashoffset="314"/>
+              </svg>
+              <div class="gauge-center">
+                <span id="gaugePercent">0%</span>
+                <small>Load</small>
+              </div>
+            </div>
+          </div>
+          <div class="device-label" id="deviceLabel">Idle — no load detected</div>
+          <div class="smart-detect-list" id="smartDetectList"></div>
+        </div>
+      </div>
+
+      <!-- Device Status Bar -->
+      <div class="device-status-bar">
+        <div class="dsb-item">
+          <span class="dsb-label">WiFi Signal</span>
+          <span class="dsb-val" id="dsbSignal">–65 dBm</span>
+        </div>
+        <div class="dsb-sep"></div>
+        <div class="dsb-item">
+          <span class="dsb-label">Last Update</span>
+          <span class="dsb-val" id="dsbLastUpdate">–</span>
+        </div>
+        <div class="dsb-sep"></div>
+        <div class="dsb-item">
+          <span class="dsb-label">Uptime</span>
+          <span class="dsb-val" id="dsbUptime">00:00:00</span>
+        </div>
+        <div class="dsb-sep"></div>
+        <div class="dsb-item">
+          <span class="dsb-label">Latency</span>
+          <span class="dsb-val" id="dsbLatency">12 ms</span>
+        </div>
+        <div class="dsb-sep"></div>
+        <div class="dsb-item">
+          <span class="dsb-label">Connection</span>
+          <span class="dsb-val conn-ok" id="dsbConn">● Stable</span>
+        </div>
+      </div>
+
+      <!-- Alert Log -->
+      <div class="alert-log-card">
+        <h3 class="panel-title">
+          Alert Log
+          <div style="display:flex;gap:8px;align-items:center">
+            <span class="alert-count-badge" id="alertCountBadge">0</span>
+            <button class="clear-btn" id="clearAlerts">Clear All</button>
+          </div>
+        </h3>
+        <div class="alert-filters">
+          <button class="af-btn active" data-filter="all">All</button>
+          <button class="af-btn" data-filter="danger">🔴 High</button>
+          <button class="af-btn" data-filter="warn">🟡 Warn</button>
+          <button class="af-btn" data-filter="info">🔵 Info</button>
+        </div>
+        <div class="alert-list" id="alertList">
+          <div class="no-alerts">No alerts yet — all systems normal</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ LIVE DEVICES ══ -->
+    <section class="section" id="sec-devices">
+      <div class="devices-summary-row">
+        <div class="ds-card"><span class="ds-num" id="dsTotal">0</span><span class="ds-lbl">Total</span></div>
+        <div class="ds-card"><span class="ds-num green" id="dsOn">0</span><span class="ds-lbl">Active</span></div>
+        <div class="ds-card"><span class="ds-num muted" id="dsOff">0</span><span class="ds-lbl">Standby</span></div>
+        <div class="ds-card"><span class="ds-num accent" id="dsPower">0 W</span><span class="ds-lbl">Total Load</span></div>
+      </div>
+      <div class="devices-grid" id="devicesGrid"></div>
+    </section>
+
+    <!-- ══ ANALYTICS ══ -->
+    <section class="section" id="sec-analytics">
+      <div class="insight-banner" id="insightBanner">
+        <span class="insight-icon">💡</span>
+        <div class="insight-text">
+          <strong>Peak Usage Insight</strong>
+          <span id="insightMsg">Analyzing usage pattern…</span>
+        </div>
+      </div>
+      <div class="analytics-grid">
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>Usage Over Time (kWh)</h3>
+            <div class="tab-group">
+              <button class="tab active" data-chart="hourly">Hour</button>
+              <button class="tab" data-chart="daily">Day</button>
+              <button class="tab" data-chart="weekly">Week</button>
+            </div>
+          </div>
+          <div class="chart-wrap tall"><canvas id="usageLineChart"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header"><h3>Usage Comparison (kWh)</h3></div>
+          <div class="chart-wrap tall"><canvas id="barChart"></canvas></div>
+        </div>
+        <div class="chart-card span-2">
+          <div class="chart-header">
+            <h3>Weekly Power Trend (W)</h3>
+            <span class="chart-badge" id="weeklyAvgBadge">Avg: –</span>
+          </div>
+          <div class="chart-wrap"><canvas id="weeklyTrendChart"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ BILLING ══ -->
+    <section class="section" id="sec-billing">
+      <div class="billing-grid">
+        <div class="bill-card main-bill">
+          <h3>Bill Estimator</h3>
+          <div class="bill-form">
+            <label>Electricity Rate (LKR / kWh)</label>
+            <input type="number" id="rateInput" value="45" min="1" step="0.5" />
+          </div>
+          <div class="bill-results">
+            <div class="bill-row"><span>Daily Cost</span><span class="bill-val" id="dailyCost">LKR 0.00</span></div>
+            <div class="bill-row"><span>Weekly Cost</span><span class="bill-val" id="weeklyCost">LKR 0.00</span></div>
+            <div class="bill-row highlight"><span>Monthly Estimate</span><span class="bill-val big" id="monthlyCost">LKR 0.00</span></div>
+            <div class="bill-row"><span>Annual Estimate</span><span class="bill-val" id="annualCost">LKR 0.00</span></div>
+          </div>
+        </div>
+        <div class="bill-card">
+          <h3>Consumption Summary</h3>
+          <div class="chart-wrap tall"><canvas id="billPieChart"></canvas></div>
+        </div>
+        <div class="bill-card span-2">
+          <h3>Monthly Projection</h3>
+          <div class="chart-wrap"><canvas id="projectionChart"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ SETTINGS ══ -->
+    <section class="section" id="sec-settings">
+      <div class="settings-grid">
+        <div class="settings-card">
+          <h3>⚡ Energy Thresholds</h3>
+          <div class="setting-row">
+            <label>Power Alert Threshold (W)</label>
+            <input type="number" id="thresholdInput" value="1500" min="100" step="50"/>
+          </div>
+          <div class="setting-row">
+            <label>Daily kWh Limit</label>
+            <input type="number" id="kwhLimitInput" value="10" min="1" step="0.5"/>
+          </div>
+          <div class="setting-row">
+            <label>Daily Cost Alert (LKR)</label>
+            <input type="number" id="costAlertInput" value="500" min="10" step="10"/>
+          </div>
+          <div class="setting-row">
+            <label>Alert Sound</label>
+            <label class="toggle-switch">
+              <input type="checkbox" id="alertSoundToggle" checked/>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <button class="save-settings-btn" id="saveSettingsBtn">💾 Save Settings</button>
+        </div>
+
+        <div class="settings-card">
+          <h3>🔌 Device Info</h3>
+          <div class="setting-row"><label>Account Number</label><span>00965845269985</span></div>
+          <div class="setting-row"><label>Owner Name</label><span>Sandaru Chathuranga</span></div>
+          <div class="setting-row"><label>version</label><span>v0.0.1</span></div>
+          <div class="setting-row"><label>Update Rate</label><span>2 seconds</span></div>
+          <div class="setting-row"><label>Status</label><span class="status-ok">● Connected</span></div>
+        </div>
+
+        <div class="settings-card">
+          <h3>🌐 Connection</h3>
+          <div class="setting-row"><label>Protocol</label><span>MQTT / WebSocket</span></div>
+          <div class="setting-row"><label>IP Address</label><span>192.168.1.42</span></div>
+          <div class="setting-row"><label>Signal</label><span id="signalVal">–65 dBm (Good)</span></div>
+          <div class="setting-row"><label>Latency</label><span id="latencyVal">12 ms</span></div>
+          <div class="setting-row">
+            <label>Auto-reconnect</label>
+            <label class="toggle-switch"><input type="checkbox" checked/><span class="toggle-slider"></span></label>
+          </div>
+        </div>
+
+        <div class="settings-card">
+          <h3>📊 Display</h3>
+          <div class="setting-row">
+            <label>Dark Mode</label>
+            <label class="toggle-switch"><input type="checkbox" id="darkModeToggle" checked/><span class="toggle-slider"></span></label>
+          </div>
+          <div class="setting-row">
+            <label>Animations</label>
+            <label class="toggle-switch"><input type="checkbox" id="animToggle" checked/><span class="toggle-slider"></span></label>
+          </div>
+          <div class="setting-row">
+            <label>Currency</label>
+            <select id="currencySelect">
+              <option value="LKR">LKR — Sri Lankan Rupee</option>
+              <option value="USD">USD — US Dollar</option>
+              <option value="EUR">EUR — Euro</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="settings-card">
+          <h3>👤 Account</h3>
+          <div class="setting-row"><label>Logged in as</label><span id="userEmailSettings" style="font-size:12px;color:var(--text-muted)">–</span></div>
+          <div class="setting-row"><label>Mode</label><span id="authModeLabel" class="status-ok">Demo</span></div>
+          <div class="setting-row"><label>Session</label><span class="status-ok">● Active</span></div>
+          <button class="logout-full-btn" id="logoutFullBtn">
+            <svg viewBox="0 0 24 24" style="width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Sign Out
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+
+  <script src="script.js"></script>
+</body>
+</html>
